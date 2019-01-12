@@ -85,7 +85,7 @@ func Discover(renewal, timeout time.Duration) []Device {
 	var results []Device
 
 	interfaces, err := net.Interfaces()
-	if err != nil {
+	if err != nil && Debug {
 		log.Errorf("Listing network interfaces: %s", err)
 		return results
 	}
@@ -127,7 +127,9 @@ nextResult:
 		results = append(results, result)
 		seenResults[result.ID()] = true
 
-		log.Infof("UPnP discovery result %s", result.ID())
+		if Debug {
+			log.Infof("UPnP discovery result %s", result.ID())
+		}
 	}
 
 	return results
@@ -177,10 +179,8 @@ USER-AGENT: go-torrent/1.0
 
 	_, err = socket.WriteTo(search, ssdp)
 	if err != nil {
-		if e, ok := err.(net.Error); !ok || !e.Timeout() {
-			if Debug {
-				log.Debugf("UPnP discovery: sending search request: %s", err)
-			}
+		if e, ok := err.(net.Error); (!ok || !e.Timeout()) && Debug {
+			log.Debugf("UPnP discovery: sending search request: %s", err)
 		}
 		return
 	}
@@ -194,7 +194,7 @@ USER-AGENT: go-torrent/1.0
 		resp := make([]byte, 65536)
 		n, _, err := socket.ReadFrom(resp)
 		if err != nil {
-			if e, ok := err.(net.Error); !ok || !e.Timeout() {
+			if e, ok := err.(net.Error); (!ok || !e.Timeout()) && Debug {
 				log.Errorf("UPnP read: %s", err) //legitimate error, not a timeout.
 			}
 			break
@@ -239,7 +239,7 @@ func parseResponse(deviceType string, resp []byte) ([]IGDService, error) {
 
 	deviceDescriptionURL, err := url.Parse(deviceDescriptionLocation)
 
-	if err != nil {
+	if err != nil && Debug {
 		log.Errorf("Invalid IGD location: %s", err.Error())
 	}
 
@@ -359,10 +359,8 @@ func getIGDServices(deviceUUID string, localIPAddress net.IP, rootURL string, de
 	for _, device := range devices {
 		connections := getChildDevices(device, wanConnectionURN)
 
-		if len(connections) < 1 {
-			if Debug {
-				log.Debugf("%s - malformed %s description: no WANConnectionDevices specified.", rootURL, wanDeviceURN)
-			}
+		if (len(connections) < 1) && Debug {
+			log.Debugf("%s - malformed %s description: no WANConnectionDevices specified.", rootURL, wanDeviceURN)
 		}
 
 		for _, connection := range connections {
@@ -459,7 +457,9 @@ func soapRequest(url, service, function, message string) ([]byte, error) {
 
 	r, err := http.DefaultClient.Do(req)
 	if err != nil {
-		log.Errorf("SOAP do: %s", err)
+		if Debug {
+			log.Errorf("SOAP do: %s", err)
+		}
 		return resp, err
 	}
 
